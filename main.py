@@ -11,6 +11,11 @@ from psycopg2.extras import DictCursor
 from telebot import types
 import psycopg2
 
+from sqlalchemy import create_engine, Column, Integer, String, Numeric, ForeignKey, BigInteger, DateTime, Sequence
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
+from sqlalchemy.orm import sessionmaker
+
 from conf_bd import host, user, password, db_name
 from price import check_price
 from start_command import first_command
@@ -21,6 +26,56 @@ from data_unloading import db_upload
 bot = telebot.TeleBot('7801057162:AAFeo2tmLBEcfOZj3FoYIB9QdZu8CpdMYgY')
 
 first_command(bot)
+
+Base = declarative_base()
+
+DATABASE_URL = f"postgresql://{user}:{password}@{host}/{db_name}"
+engine = create_engine(DATABASE_URL, echo=False)
+Session = sessionmaker(bind=engine)
+session = Session()
+
+Base.metadata.create_all(engine)
+
+
+class Alerts(Base):
+    __tablename__ = 'alerts'
+
+    alert_id = Column(Integer, Sequence('alerts_alert_id_seq'), primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'))
+    symbol = Column(String(50))
+    target_price = Column(Numeric(20, 10))
+    direction = Column(String(10), nullable=False)
+    alerts_date = Column(DateTime)
+    number_repetitions = Column(Integer, default=1)
+
+    user = relationship("Users", back_populates="alerts")
+
+
+class Cryptocurrencies(Base):
+    __tablename__ = 'cryptocurrencies'
+
+    currency_id = Column(Integer, Sequence('cryptocurrencies_currency_id_seq'), primary_key=True)
+    symbol = Column(String(50), unique=True, nullable=False)
+    name = Column(String(50), nullable=False)
+    market_cap = Column(Numeric(20, 2))
+    price = Column(Numeric(20, 10))
+    price_change_percentage_24h = Column(Numeric(20, 2))
+    volume_24h = Column(Numeric(20, 2))
+    last_updated = Column(DateTime)
+
+
+class Users(Base):
+    __tablename__ = 'users'
+
+    id = Column(Integer, Sequence('users_id_seq'), primary_key=True)
+    id_user = Column(String(50), nullable=False)
+    first_name = Column(String(50))
+    last_name = Column(String(50))
+    language = Column(String(10), nullable=False)
+    chat_id = Column(Integer, nullable=False)
+    last_alert_id = Column(BigInteger)
+
+    alerts = relationship("Alerts", back_populates="user")
 
 
 # Функция подключения к базе данных
