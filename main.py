@@ -5,7 +5,7 @@ import threading
 import re
 
 import telebot
-import webbrowser
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from psycopg2.extras import DictCursor
 from telebot import types
@@ -469,11 +469,22 @@ def info_message(message):
     bot.send_message(message.chat.id, message)
 
 
-# Обработка команды /upload (выгрузка всех таблиц в разных форматах)
+# Обработка команды /upload
 @bot.message_handler(commands=['upload'])
 def all_upload_data(message):
-    bot.reply_to(message, "Upload process started!")
-    db_upload()
+    if is_admin(message.from_user.id):
+        bot.reply_to(message, "Upload process started!")
+        db_upload()
+    else:
+        bot.reply_to(message, "У вас нет прав для выполнения этой команды.")
+
+
+@bot.message_handler(commands=["admin"])
+def admin_command(message):
+    if is_admin(message.from_user.id):
+        bot.send_message(message.chat.id, "Панель администратора:", reply_markup=admin_panel())
+    else:
+        bot.send_message(message.chat.id, "У вас нет прав администратора.")
 
 
 # Обработка сообщения от пользователя (если вводит id, ответом на его сообщение выводим его ID)
@@ -567,6 +578,40 @@ def update_data():
         print(f"[ERROR] Ошибка обновления данных: {e}")
     finally:
         connection.close()
+
+
+def admin_panel():
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("Выгрузка БД", callback_data="admin_export_db"))
+    markup.add(InlineKeyboardButton("Принудительный бэкап", callback_data="admin_force_backup"))
+    return markup
+
+
+def is_admin(user_id):
+    try:
+        connection = psycopg2.connect(host=host, user=user, password=password, database=db_name)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT is_admin FROM users WHERE id_user = %s", (str(user_id),))
+            result = cursor.fetchone()
+            return result and result[0]
+    finally:
+        connection.close()
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_"))
+def handle_admin_callback(call):
+    if not is_admin(call.from_user.id):
+        bot.answer_callback_query(call.id, "У вас нет прав администратора.", show_alert=True)
+        return
+
+    if call.data == "admin_export_db":
+        bot.answer_callback_query(call.id, "Начинается выгрузка базы данных.")
+        db_upload()
+        bot.send_message(call.message.chat.id, "Выгрузка базы данных завершена.")
+
+    elif call.data == "admin_force_backup":
+        bot.answer_callback_query(call.id, "Начинается принудительное резервное копирование.")
+        bot.send_message(call.message.chat.id, "Принудительное резервное копирование завершено.")
 
 
 def infinite_loop():

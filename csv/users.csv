@@ -1,4 +1,4 @@
-id,id_user,first_name,last_name,language,chat_id,last_alert_id
-2,692649873,levva,,ru,692649873,
-3,481099159,Slava,,ru,481099159,
-1,670158765,...,...,ru,670158765,3
+id,id_user,first_name,last_name,language,chat_id,last_alert_id,is_admin
+2,692649873,levva,,ru,692649873,,False
+3,481099159,Slava,,ru,481099159,,False
+1,670158765,...,...,ru,670158765,3,True
